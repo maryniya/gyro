@@ -20,39 +20,51 @@
     function enableOrientation() {
       if (typeof DeviceOrientationEvent !== 'undefined' &&
           typeof DeviceOrientationEvent.requestPermission === 'function') {
-        // iOS 13+ requires explicit permission
-        DeviceOrientationEvent.requestPermission()
-          .then(response => {
-            if (response === 'granted') {
-              window.addEventListener('deviceorientation', handleOrientation);
-            } else {
-              alert("Permission denied for motion access.");
-            }
-          })
-          .catch(err => {
-            console.error("Permission request error:", err);
-            alert("Failed to request motion access.");
-          });
-      } else {
-        // Android or older iOS
-        window.addEventListener('deviceorientation', handleOrientation);
-      }
-    }
+    //  iOS 13+ requires permission
+    DeviceOrientationEvent.requestPermission()
+      .then(response => {
+        if (response === 'granted') {
+          // 🔄 Sync with ESP: Set servo to center
+          fetch(`http://10.0.0.89/servo?gamma=90`)
+            .then(() => console.log("Initialized servo to 90°"))
+            .catch(err => console.log("ESP not responding"));
 
-    function handleOrientation(event) {
-      const gamma = event.gamma || 0; // -90 to +90 (tilt)
-      const mapped = gamma + 90;      // 0 to 180
+          // ✅ Start tracking tilt
+          window.addEventListener('deviceorientation', handleOrientation);
+        } else {
+          alert("Permission denied for motion access.");
+        }
+      })
+      .catch(err => {
+        console.error("Permission request error:", err);
+        alert("Failed to request motion access.");
+      });
+  } else {
+    // ✅ Android or older iOS — no permission needed
+    fetch(`http://10.0.0.89/servo?gamma=90`)
+      .then(() => console.log("Initialized servo to 90°"))
+      .catch(err => console.log("ESP not responding"));
 
-      // Smooth transition
-      smoothedGamma = smoothedGamma * smoothingFactor + mapped * (1 - smoothingFactor);
+    window.addEventListener('deviceorientation', handleOrientation);
+  }
+}
 
-      // Display values
-      document.getElementById("gamma").textContent = gamma.toFixed(2);
-      document.getElementById("servo").textContent = Math.round(smoothedGamma);
+function handleOrientation(event) {
+  const gamma = event.gamma || 0; // -90 to +90 (tilt)
+  const mapped = gamma + 90;      // 0 to 180
 
-      // Send to ESP8266
-      fetch(`http://10.0.0.89/servo?gamma=${Math.round(smoothedGamma)}`)
-        .catch(err => console.log("ESP not responding"));
+  // Smooth transition
+  smoothedGamma = smoothedGamma * smoothingFactor + mapped * (1 - smoothingFactor);
+
+  // Display values
+  document.getElementById("gamma").textContent = gamma.toFixed(2);
+  document.getElementById("servo").textContent = Math.round(smoothedGamma);
+
+  // Send to ESP8266
+  fetch(`http://10.0.0.89/servo?gamma=${Math.round(smoothedGamma)}`)
+    .catch(err => console.log("ESP not responding"));
+}
+
     }
   </script>
 </body>
