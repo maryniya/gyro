@@ -1,85 +1,59 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>iPhone Gyroscope Test (Smoothed)</title>
+  <title>iPhone Tilt to Servo Control</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body>
-  <h2>iPhone Gyroscope Angular Velocity (Smoothed)</h2>
-  <p>Alpha (Z-axis): <span id="alpha">0</span> °/s</p>
-  <p>Beta  (X-axis): <span id="beta">0</span> °/s</p>
-  <p>Gamma (Y-axis): <span id="gamma">0</span> °/s</p>
+<body style="font-family: sans-serif; text-align: center; padding: 20px;">
+  <h2>iPhone Tilt → Servo Angle</h2>
 
-  <button onclick="requestGyro()">Enable Gyroscope</button>
-  <p><strong>Tap anywhere to begin.</strong> (iOS requires user action)</p>
+  <p>Gamma (tilt): <span id="gamma">0</span>°</p>
+  <p>Mapped to Servo Angle: <span id="servo">90</span>°</p>
+
+  <button onclick="enableOrientation()">Enable Motion Access</button>
+  <p><strong>Tap the button to allow motion tracking.</strong> (iOS requires permission)</p>
 
   <script>
-    let alpha = 0, beta = 0, gamma = 0;
-    let alphaSmooth = 0, betaSmooth = 0, gammaSmooth = 0;
+    let smoothedGamma = 90; // Start in center
     const smoothingFactor = 0.85;
-    const threshold = 0.1;
 
-    function handleGyro(event) {
-      if (!event.rotationRate) return;
+    function enableOrientation() {
+      if (typeof DeviceOrientationEvent !== 'undefined' &&
+          typeof DeviceOrientationEvent.requestPermission === 'function') {
+        // iOS 13+ requires explicit permission
+        DeviceOrientationEvent.requestPermission()
+          .then(response => {
+            if (response === 'granted') {
+              window.addEventListener('deviceorientation', handleOrientation);
+            } else {
+              alert("Permission denied for motion access.");
+            }
+          })
+          .catch(err => {
+            console.error("Permission request error:", err);
+            alert("Failed to request motion access.");
+          });
+      } else {
+        // Android or older iOS
+        window.addEventListener('deviceorientation', handleOrientation);
+      }
+    }
 
-      alpha = event.rotationRate.alpha || 0;
-      beta = event.rotationRate.beta || 0;
-      gamma = event.rotationRate.gamma || 0;
+    function handleOrientation(event) {
+      const gamma = event.gamma || 0; // -90 to +90 (tilt)
+      const mapped = gamma + 90;      // 0 to 180
 
-      // Smooth the values
-      alphaSmooth = alphaSmooth * smoothingFactor + alpha * (1 - smoothingFactor);
-      betaSmooth = betaSmooth * smoothingFactor + beta * (1 - smoothingFactor);
-      gammaSmooth = gammaSmooth * smoothingFactor + gamma * (1 - smoothingFactor);
+      // Smooth transition
+      smoothedGamma = smoothedGamma * smoothingFactor + mapped * (1 - smoothingFactor);
 
-      // Apply deadband filtering to ignore jitter
-      if (Math.abs(alphaSmooth) < threshold) alphaSmooth = 0;
-      if (Math.abs(betaSmooth) < threshold) betaSmooth = 0;
-      if (Math.abs(gammaSmooth) < threshold) gammaSmooth = 0;
+      // Display values
+      document.getElementById("gamma").textContent = gamma.toFixed(2);
+      document.getElementById("servo").textContent = Math.round(smoothedGamma);
 
-      // Display smoothed values
-      document.getElementById('alpha').textContent = alphaSmooth.toFixed(2);
-      document.getElementById('beta').textContent = betaSmooth.toFixed(2);
-      document.getElementById('gamma').textContent = gammaSmooth.toFixed(2);
-
-       //  Send smoothed gamma to ESP8266
-      fetch(`http://10.0.0.89/servo?gamma=${gammaSmooth.toFixed(2)}`)
+      // Send to ESP8266
+      fetch(`http://10.0.0.89/servo?gamma=${Math.round(smoothedGamma)}`)
         .catch(err => console.log("ESP not responding"));
-
     }
-
-    function startMotionTracking() {
-      if (typeof DeviceMotionEvent.requestPermission === 'function') {
-        DeviceMotionEvent.requestPermission().then(response => {
-          if (response === 'granted') {
-            window.addEventListener('devicemotion', handleGyro);
-          } else {
-            alert("Permission denied!");
-          }
-        }).catch(console.error);
-      } else {
-        // For non-iOS or older versions
-        window.addEventListener('devicemotion', handleGyro);
-      }
-    }
-
-    function requestGyro() {
-      if (typeof DeviceMotionEvent.requestPermission === 'function') {
-        DeviceMotionEvent.requestPermission().then(response => {
-          if (response === 'granted') {
-            startMotionTracking();
-          } else {
-            alert("Permission denied");
-          }
-        }).catch(error => {
-          console.log("Error:", error);
-        });
-      } else {
-        startMotionTracking(); // non-iOS
-      }
-    }
-
-    // Start on tap anywhere (backup trigger)
-    document.body.addEventListener('click', startMotionTracking);
   </script>
 </body>
 </html>
