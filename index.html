@@ -1,61 +1,81 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>iPhone Gyroscope Test</title>
+  <title>iPhone Gyroscope Test (Smoothed)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
-  <h2>iPhone Gyroscope Angular Velocity</h2>
+  <h2>iPhone Gyroscope Angular Velocity (Smoothed)</h2>
   <p>Alpha (Z-axis): <span id="alpha">0</span> °/s</p>
   <p>Beta  (X-axis): <span id="beta">0</span> °/s</p>
   <p>Gamma (Y-axis): <span id="gamma">0</span> °/s</p>
 
+  <button onclick="requestGyro()">Enable Gyroscope</button>
+  <p><strong>Tap anywhere to begin.</strong> (iOS requires user action)</p>
+
   <script>
+    let alpha = 0, beta = 0, gamma = 0;
+    let alphaSmooth = 0, betaSmooth = 0, gammaSmooth = 0;
+    const smoothingFactor = 0.85;
+    const threshold = 0.1;
+
+    function handleGyro(event) {
+      if (!event.rotationRate) return;
+
+      alpha = event.rotationRate.alpha || 0;
+      beta = event.rotationRate.beta || 0;
+      gamma = event.rotationRate.gamma || 0;
+
+      // Smooth the values
+      alphaSmooth = alphaSmooth * smoothingFactor + alpha * (1 - smoothingFactor);
+      betaSmooth = betaSmooth * smoothingFactor + beta * (1 - smoothingFactor);
+      gammaSmooth = gammaSmooth * smoothingFactor + gamma * (1 - smoothingFactor);
+
+      // Apply deadband filtering to ignore jitter
+      if (Math.abs(alphaSmooth) < threshold) alphaSmooth = 0;
+      if (Math.abs(betaSmooth) < threshold) betaSmooth = 0;
+      if (Math.abs(gammaSmooth) < threshold) gammaSmooth = 0;
+
+      // Display smoothed values
+      document.getElementById('alpha').textContent = alphaSmooth.toFixed(2);
+      document.getElementById('beta').textContent = betaSmooth.toFixed(2);
+      document.getElementById('gamma').textContent = gammaSmooth.toFixed(2);
+    }
+
     function startMotionTracking() {
       if (typeof DeviceMotionEvent.requestPermission === 'function') {
-        // For iOS 13+ (like iPhone 11)
         DeviceMotionEvent.requestPermission().then(response => {
           if (response === 'granted') {
-            window.addEventListener('devicemotion', (event) => {
-              if (event.rotationRate) {
-                document.getElementById('alpha').textContent = event.rotationRate.alpha.toFixed(2);
-                document.getElementById('beta').textContent = event.rotationRate.beta.toFixed(2);
-                document.getElementById('gamma').textContent = event.rotationRate.gamma.toFixed(2);
-              }
-            });
+            window.addEventListener('devicemotion', handleGyro);
           } else {
             alert("Permission denied!");
           }
         }).catch(console.error);
       } else {
         // For non-iOS or older versions
-        window.addEventListener('devicemotion', (event) => {
-          if (event.rotationRate) {
-            document.getElementById('alpha').textContent = event.rotationRate.alpha.toFixed(2);
-            document.getElementById('beta').textContent = event.rotationRate.beta.toFixed(2);
-            document.getElementById('gamma').textContent = event.rotationRate.gamma.toFixed(2);
-          }
-        });
+        window.addEventListener('devicemotion', handleGyro);
       }
     }
 
     function requestGyro() {
-      DeviceMotionEvent.requestPermission().then(response => {
-        if (response === 'granted') {
-          window.addEventListener('devicemotion', handleGyro);
-        } else {
-          alert("Permission denied");
-        }
-      }).catch(error => {
-        console.log("Error:", error);
-      });
+      if (typeof DeviceMotionEvent.requestPermission === 'function') {
+        DeviceMotionEvent.requestPermission().then(response => {
+          if (response === 'granted') {
+            startMotionTracking();
+          } else {
+            alert("Permission denied");
+          }
+        }).catch(error => {
+          console.log("Error:", error);
+        });
+      } else {
+        startMotionTracking(); // non-iOS
+      }
     }
 
-    // Start on user interaction (required by iOS)
+    // Start on tap anywhere (backup trigger)
     document.body.addEventListener('click', startMotionTracking);
   </script>
-  <button onclick="requestGyro()">Enable Gyroscope</button>
-
-
-  <p><strong>Tap anywhere to begin.</strong> (iOS requires user action)</p>
 </body>
 </html>
+
