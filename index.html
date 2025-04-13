@@ -40,6 +40,11 @@
       document.getElementById('alpha').textContent = alphaSmooth.toFixed(2);
       document.getElementById('beta').textContent = betaSmooth.toFixed(2);
       document.getElementById('gamma').textContent = gammaSmooth.toFixed(2);
+
+       //  Send smoothed gamma to ESP8266
+      fetch(`http://10.0.0.89/servo?gamma=${gammaSmooth.toFixed(2)}`)
+        .catch(err => console.log("ESP not responding"));
+
     }
 
     function startMotionTracking() {
