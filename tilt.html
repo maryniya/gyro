@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>iPhone Gyroscope Test</title>
+</head>
+<body>
+  <h2>iPhone Gyroscope Angular Velocity</h2>
+  <p>Alpha (Z-axis): <span id="alpha">0</span> °/s</p>
+  <p>Beta  (X-axis): <span id="beta">0</span> °/s</p>
+  <p>Gamma (Y-axis): <span id="gamma">0</span> °/s</p>
+
+  <script>
+    function startMotionTracking() {
+      if (typeof DeviceMotionEvent.requestPermission === 'function') {
+        // For iOS 13+ (like iPhone 11)
+        DeviceMotionEvent.requestPermission().then(response => {
+          if (response === 'granted') {
+            window.addEventListener('devicemotion', (event) => {
+              if (event.rotationRate) {
+                document.getElementById('alpha').textContent = event.rotationRate.alpha.toFixed(2);
+                document.getElementById('beta').textContent = event.rotationRate.beta.toFixed(2);
+                document.getElementById('gamma').textContent = event.rotationRate.gamma.toFixed(2);
+              }
+            });
+          } else {
+            alert("Permission denied!");
+          }
+        }).catch(console.error);
+      } else {
+        // For non-iOS or older versions
+        window.addEventListener('devicemotion', (event) => {
+          if (event.rotationRate) {
+            document.getElementById('alpha').textContent = event.rotationRate.alpha.toFixed(2);
+            document.getElementById('beta').textContent = event.rotationRate.beta.toFixed(2);
+            document.getElementById('gamma').textContent = event.rotationRate.gamma.toFixed(2);
+          }
+        });
+      }
+    }
+
+    function requestGyro() {
+      DeviceMotionEvent.requestPermission().then(response => {
+        if (response === 'granted') {
+          window.addEventListener('devicemotion', handleGyro);
+        } else {
+          alert("Permission denied");
+        }
+      }).catch(error => {
+        console.log("Error:", error);
+      });
+    }
+
+    // Start on user interaction (required by iOS)
+    document.body.addEventListener('click', startMotionTracking);
+  </script>
+  <button onclick="requestGyro()">Enable Gyroscope</button>
+
+
+  <p><strong>Tap anywhere to begin.</strong> (iOS requires user action)</p>
+</body>
+</html>
